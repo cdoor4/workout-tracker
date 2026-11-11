@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A phone-first gym sheet: tick sets, adjust load, auto rest timer, progression rules on every lift.">
+<title>Training Sheet</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: single phone-first column, a gym sheet — phase bands, one card per lift, tap-to-tick set rows with steppers */
+:root {
+  --bg: #eceeed; --surface: #f8f9f8; --fg: #17201c; --muted: #5b6661; --line: #d3d8d5;
+  --accent: #2453a6; --accent-soft: #dfe7f5; --warn: #9a5a00; --warn-soft: #fbefd9; --stop: #b3261e; --stop-soft: #f9e1de; --ok: #2c7a4b; --ok-soft: #dcefe3;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121519; --surface: #1b1f24; --fg: #e6e8ea; --muted: #9aa3ad; --line: #2c333b;
+  --accent: #86a9ec; --accent-soft: #1e2a40; --warn: #f0b45a; --warn-soft: #33281a; --stop: #f08a80; --stop-soft: #3a1f1d; --ok: #6fcf97; --ok-soft: #173326; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121519; --surface: #1b1f24; --fg: #e6e8ea; --muted: #9aa3ad; --line: #2c333b;
+  --accent: #86a9ec; --accent-soft: #1e2a40; --warn: #f0b45a; --warn-soft: #33281a; --stop: #f08a80; --stop-soft: #3a1f1d; --ok: #6fcf97; --ok-soft: #173326; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; }
+.wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 20px }
+header { display: grid; gap: 6px }
+.eyebrow { font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+h1 { font: 700 44px/1 var(--display); margin: 0; letter-spacing: .01em; text-wrap: balance }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 14px }
+.save { font: 500 12px var(--mono); padding: 3px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); justify-self: start }
+.save.ok { background: var(--ok-soft); color: var(--ok) }
+.save.bad { background: var(--stop-soft); color: var(--stop) }
+.clock { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface) }
+.clock div { padding: 10px 12px; display: grid; gap: 2px }
+.clock div + div { border-left: 1px solid var(--line) }
+.clock b { font: 700 26px/1 var(--display); font-variant-numeric: tabular-nums }
+.clock span { font-size: 12px; color: var(--muted) }
+.notes { display: grid; gap: 8px }
+.note { padding: 10px 12px; border-radius: 6px; font-size: 14px; border-left: 4px solid }
+.note.stop { background: var(--stop-soft); border-color: var(--stop) }
+.note.warn { background: var(--warn-soft); border-color: var(--warn) }
+.note strong { display: block; font-weight: 600 }
+h2 { font: 700 22px/1 var(--display); letter-spacing: .04em; text-transform: uppercase; margin: 8px 0 0; display: flex; justify-content: space-between; align-items: baseline; gap: 12px }
+h2 small { font: 500 13px var(--mono); color: var(--muted); letter-spacing: 0; text-transform: none }
+.list { display: grid; gap: 10px }
+.ex { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 10px; min-width: 0 }
+.ex-top { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start }
+.tag { font: 700 22px/34px var(--display); text-align: center; background: var(--accent-soft); color: var(--accent); border-radius: 6px; height: 34px }
+.ex h3 { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.3 }
+.rx { font: 500 14px var(--mono); color: var(--accent); margin-top: 2px; font-variant-numeric: tabular-nums }
+.why { font-size: 13px; color: var(--muted); margin-top: 2px }
+.cues { margin: 0; padding-left: 18px; font-size: 14px; display: grid; gap: 3px }
+.rule { font-size: 13px; padding: 8px 10px; border-radius: 6px; background: var(--accent-soft) }
+.rule b { font-weight: 600 }
+.ss { font-size: 13px; color: var(--warn); font-weight: 500 }
+
+.ticks { display: grid; gap: 6px }
+.tick { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: 100%; text-align: left;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: 14px var(--body); color: var(--fg); cursor: pointer }
+.tick em { font: 500 13px var(--mono); font-style: normal; color: var(--muted) }
+.tick.ramp { padding: 7px 12px; font-size: 13px }
+.box { width: 26px; height: 26px; border-radius: 6px; border: 2px solid var(--line); display: grid; place-items: center; font: 700 16px var(--body); color: transparent; flex: none }
+.on .box { background: var(--ok); border-color: var(--ok); color: var(--surface) }
+.tick.on { background: var(--ok-soft); border-color: var(--ok) }
+.tick-l { display: flex; gap: 10px; align-items: center; min-width: 0 }
+
+.set { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg) }
+.set.on { background: var(--ok-soft); border-color: var(--ok) }
+.set > button.done { display: grid; grid-template-columns: auto auto; gap: 8px; align-items: center; background: none; border: 0; padding: 4px; cursor: pointer; color: var(--fg); font: 500 12px var(--mono) }
+.steppers { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; min-width: 0 }
+.step { display: grid; grid-template-columns: 32px auto 32px; align-items: center; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); overflow: hidden }
+.step button { height: 34px; border: 0; background: transparent; color: var(--accent); font: 600 18px var(--body); cursor: pointer }
+.step span { font: 500 14px var(--mono); font-variant-numeric: tabular-nums; text-align: center; min-width: 58px; padding: 0 2px }
+.step span small { display: block; font-size: 10px; color: var(--muted); line-height: 1; margin-top: 1px }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { min-width: 40px; height: 38px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: 500 15px var(--mono); cursor: pointer }
+.chip.on { background: var(--accent); border-color: var(--accent); color: var(--surface) }
+.hdr { font: 500 11px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+textarea { width: 100%; min-height: 64px; font: 14px var(--body); padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); resize: vertical }
+textarea.exnote { min-height: 40px; font-size: 13px }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font: 500 14px var(--body); padding: 10px; border-radius: 8px; cursor: pointer }
+footer { font-size: 13px; color: var(--muted) }
+.rest { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--fg); color: var(--bg);
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); padding-top: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+.rest-in { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center }
+.rest-t { display: grid; gap: 0 }
+.rest-t b { font: 700 38px/1 var(--display); font-variant-numeric: tabular-nums }
+.rest-t span { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; opacity: .75 }
+.rest-b { display: flex; gap: 6px }
+.rest-b button { height: 44px; min-width: 52px; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; font: 600 15px var(--mono); cursor: pointer }
+.rest-q { grid-column: 1 / -1; margin: 0; font-size: 13px; line-height: 1.4; opacity: .9; text-wrap: balance }
+.rest-q cite { font-style: normal; opacity: .7; white-space: nowrap }
+.quote { margin: 0; padding: 4px 0 4px 14px; border-left: 3px solid var(--accent); display: grid; gap: 4px }
+.quote p { margin: 0; font: 600 20px/1.25 var(--display); letter-spacing: .01em; text-wrap: balance }
+.quote cite { font: 500 12px var(--mono); font-style: normal; color: var(--muted) }
+.why-card { padding: 12px 14px; border-radius: 8px; background: var(--ok-soft); border: 1px solid var(--ok); display: grid; gap: 2px }
+.why-card span { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--ok) }
+.why-card b { font: 600 20px/1.25 var(--display); letter-spacing: .01em }
+.rest-bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--bg) 25%, transparent); overflow: hidden }
+.rest-bar i { display: block; height: 100%; background: var(--ok); width: 100% }
+.rest.over { background: var(--ok) }
+.rest.over .rest-bar i { background: var(--bg) }
+body.resting { padding-bottom: 170px }
+@media (max-width: 380px) { .step span { min-width: 48px } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+</style>
+
+<!-- SESSION CONFIG — the only part that changes per session. Schema: see docs/session-schema.md -->
+<script type="application/json" id="session">
+{
+  "id": "demo-push",
+  "session": "Demo",
+  "type": "Push",
+  "date": "2026-11-02",
+  "eyebrow": "Block 2 · Week 2 · Demo session",
+  "title": "Push Day",
+  "meta": ["Mon 2 Nov", "Home gym", "Hard stop 55 min"],
+  "budget": [[8, "min warm-up"], [40, "min main work"], [7, "min cooldown"]],
+  "banners": [
+    {"level": "warn", "title": "Hold week", "text": "Every lift repeats last week's load. Only the up rules on each card move the weight. Tick each set; use − / + only if what you did differs."}
+  ],
+  "warmup": {"label": "Warm-up", "time": "8 min", "items": [
+    ["catcamel", "Cat-camel", "5 cycles"],
+    ["fp1", "Face pulls 1 → McGill curl-up 3-2-1 × 10s", "12–15", 30],
+    ["fp2", "Face pulls 2 → side plank 3-2-1 × 10s/side", "12–15", 30],
+    ["pushupplus", "Push-up plus", "10"],
+    ["deadbug", "Dead bugs, between bench ramp sets", "2 × 8/side"]
+  ]},
+  "main": {"label": "Main work", "time": "40 min", "exercises": [
+    {"key": "bench", "tag": "A", "name": "Bench press", "rx": "60kg · 3 × 8 · RPE 7 · rest 2 min", "why": "Last time: 57.5×8 @ 6 → 60×8 @ 6.5 → 60×8 @ 7.5",
+     "cues": ["Shoulder blades pinned, elbows ~45°", "Touch the same spot every rep, no bounce", "RPE 9 cap without a spotter"],
+     "rule": "<b>Up:</b> set 1 ≤RPE 6 → 62.5kg for sets 2–3; all 3 sets ≤RPE 7 → 62.5kg next time. <b>Down:</b> set 1 ≥RPE 8 → 57.5kg for sets 2–3.",
+     "ramp": [["20kg", 10], ["35kg", 8], ["45kg", 5], ["52.5kg", 2]],
+     "superset": {"key": "pa-b", "label": "Pull-aparts", "dose": "15", "text": "Between sets: band pull-aparts × 15"},
+     "sets": 3, "reps": 8, "load": 60, "loadStep": 2.5, "rest": 120},
+    {"key": "pushpress", "tag": "B", "name": "Push press", "rx": "35kg · 3 × 8 · RPE 6–7 · rest 90s", "why": "Last time: 35 × 8/8/8 @ 7/7/7.5",
+     "cues": ["Feet hip-width, short dip, knees forward", "Brace, ribs down, no lean-back at lockout", "Head through at the top"],
+     "rule": "<b>Up:</b> all sets ≤RPE 7 → 37.5kg next time. <b>Down:</b> any shoulder niggle → stop, swap to incline DB.",
+     "ramp": [["15kg", 8], ["25kg", 5]],
+     "sets": 3, "reps": 8, "load": 35, "loadStep": 2.5, "rest": 90},
+    {"key": "incline", "tag": "C", "name": "Incline DB press (neutral grip)", "rx": "17kg · 3 × 10 · RPE ≤8 · rest 90s", "why": "Last time: 10/9/8. Target: all 10s",
+     "cues": ["Neutral grip, elbows tucked", "2s lower, stretch at the bottom", "Stop at RPE 8 even if 10 isn't there"],
+     "rule": "<b>Up:</b> 3 × 10 at RPE ≤7 → 19.5kg next time. <b>Down:</b> set 1 under 8 reps → 14.5kg for sets 2–3.",
+     "sets": 3, "reps": 10, "load": 17, "loads": [12.5, 14.5, 15, 17, 19.5, 22], "rest": 90},
+    {"key": "lateral", "tag": "D", "name": "Band lateral raise ⇄ band pushdown", "rx": "Band · 3 × 15 laterals, pushdown straight after · 60s per round", "why": "Shoulder and triceps volume, low joint cost",
+     "cues": ["Laterals: lead with the elbows, 3s down", "Pushdown: elbows pinned, full lockout", "Note the band colours"],
+     "rule": "<b>Up:</b> 3 × 20 laterals → thicker band.",
+     "superset": {"key": "pushdown", "label": "Pushdown", "dose": "15", "text": "Straight after each lateral set: band pushdown × 15"},
+     "sets": 3, "reps": 15, "noRpe": true, "rest": 60},
+    {"key": "dip", "tag": "E", "name": "Chest dip (bodyweight)", "rx": "BW · 3 × 10 · RPE 6–7 · rest 75s", "why": "Last slot: cut it first if you're over time",
+     "cues": ["Slight forward lean, shoulders down", "Only as deep as the shoulders allow", "Controlled 2s down"],
+     "rule": "<b>Up:</b> 3 × 12 → +5kg. <b>Down:</b> any front-shoulder pain → stop, note it.",
+     "sets": 3, "reps": 10, "rest": 75}
+  ]},
+  "cooldown": {"label": "Cooldown", "time": "7 min", "items": [
+    ["couch", "Couch stretch", "60–90s/side"],
+    ["hang", "Dead hang", "30–40s"]
+  ]},
+  "checks": [
+    {"key": "shoulder", "label": "Shoulder on push press / dips (0 = nothing)"}
+  ],
+  "quote": {"text": "Make haste slowly.", "by": "Augustus, via Suetonius"},
+  "lines": [
+    {"text": "Train, don't strain.", "by": "Arthur Lydiard"},
+    {"text": "Stress + rest = growth.", "by": "Brad Stulberg & Steve Magness, Peak Performance"},
+    {"text": "Everywhere means nowhere.", "by": "Seneca, Letters to Lucilius 2"}
+  ],
+  "whys": [
+    "Healthspan, not just lifespan.",
+    "A win before work starts.",
+    "Show up even when it's not perfect."
+  ],
+  "footer": "Demo session. Ticks are stored in your browser only."
+}
+
+</script>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="eyebrow"></div>
+    <h1 id="title"></h1>
+    <div class="meta" id="meta"></div>
+    <div class="save" id="save" role="status">Connecting…</div>
+  </header>
+  <div class="clock" id="clock" aria-label="Time budget"></div>
+  <div class="notes" id="banners"></div>
+  <blockquote class="quote" id="quote" hidden></blockquote>
+  <div class="ticks"><div id="t-start"></div></div>
+  <h2 id="h-warmup"></h2>
+  <div class="list"><div class="ex"><div class="ticks" id="warmup"></div></div></div>
+  <h2 id="h-main"></h2>
+  <div class="list" id="main"></div>
+  <h2 id="h-cooldown"></h2>
+  <div class="list"><div class="ex"><div class="ticks" id="cooldown"></div></div></div>
+  <h2>Finish</h2>
+  <div class="list">
+    <div class="ex">
+      <div id="checks" class="ticks"></div>
+      <label class="hdr" for="notes">Session notes (optional)</label>
+      <textarea id="notes" placeholder="Anything else worth knowing"></textarea>
+      <div class="ticks"><div id="t-finish"></div></div>
+      <div class="why-card" id="why-card" hidden><span>Why you train</span><b id="why-text"></b></div>
+      <button type="button" class="ghost" id="reset">Clear all entries</button>
+    </div>
+  </div>
+  <footer><span id="footer"></span> Everything you tick saves straight away.</footer>
+</div>
+
+<div class="rest" id="rest" hidden role="timer" aria-live="off">
+  <div class="rest-in">
+    <div class="rest-t"><span id="rest-label">Rest</span><b id="rest-time">1:00</b></div>
+    <div class="rest-b">
+      <button type="button" id="rest-minus" aria-label="15 seconds less">−15</button>
+      <button type="button" id="rest-plus" aria-label="15 seconds more">+15</button>
+      <button type="button" id="rest-skip" aria-label="Close timer">✕</button>
+    </div>
+    <p class="rest-q" id="rest-q" hidden></p>
+    <div class="rest-bar"><i id="rest-bar"></i></div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('error', e => { const s = document.getElementById('save'); if (s) { s.textContent = 'Page error: ' + (e.message || 'unknown') + ' (line ' + (e.lineno || '?') + ')'; s.className = 'save bad' } });
+window.addEventListener('unhandledrejection', e => { const s = document.getElementById('save'); if (s) { s.textContent = 'Page error: ' + ((e.reason && (e.reason.message || e.reason.code)) || 'promise rejected'); s.className = 'save bad' } });
+(() => {
+  const CFG = JSON.parse(document.getElementById('session').textContent);
+  const DOC = 'sessions/' + CFG.id;
+  const EX = CFG.main.exercises;
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ---------- static header ----------
+  document.getElementById('eyebrow').textContent = CFG.eyebrow || '';
+  document.getElementById('title').textContent = CFG.title || '';
+  document.getElementById('meta').innerHTML = (CFG.meta || []).map(m => `<span>${esc(m)}</span>`).join('');
+  document.getElementById('clock').innerHTML = (CFG.budget || []).map(([n, l]) => `<div><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('');
+  document.getElementById('banners').innerHTML = (CFG.banners || []).map(b => `<div class="note ${esc(b.level)}"><strong>${esc(b.title)}</strong>${esc(b.text)}</div>`).join('');
+  ['warmup', 'main', 'cooldown'].forEach(k => { const c = CFG[k]; document.getElementById('h-' + k).innerHTML = c ? `${esc(c.label)} <small>${esc(c.time)}</small>` : '' });
+  document.getElementById('footer').textContent = CFG.footer || '';
+  if (CFG.quote) { const q = document.getElementById('quote'); q.innerHTML = `<p>“${esc(CFG.quote.text)}”</p><cite>— ${esc(CFG.quote.by)}</cite>`; q.hidden = false }
+  // Rest-timer lines: session-matched quotes, with one of the lifter's own reasons every third rest
+  const LINES = (CFG.lines || []).map(l => ({ text: l.text, by: l.by }));
+  const WHYS = (CFG.whys || []).map(w => ({ text: w, by: 'your why' }));
+  let restCount = 0;
+  const nextLine = () => {
+    const n = restCount++;
+    const pool = WHYS.length && (n % 3 === 2 || !LINES.length) ? WHYS : LINES;
+    return pool.length ? pool[Math.floor(n / (pool === WHYS ? 3 : 1)) % pool.length] : null;
+  };
+
+  // ---------- rest timer (local only, not saved) ----------
+  const Rest = (() => {
+    const box = document.getElementById('rest'), timeEl = document.getElementById('rest-time'), labelEl = document.getElementById('rest-label'), bar = document.getElementById('rest-bar');
+    let end = 0, total = 60, tick = null, beeped = false, audio = null, lock = null;
+    const fmt = s => { const a = Math.abs(s); return (s < 0 ? '+' : '') + Math.floor(a / 60) + ':' + String(a % 60).padStart(2, '0') };
+    const beep = () => {
+      try { navigator.vibrate && navigator.vibrate([300, 150, 300]) } catch (e) {}
+      try {
+        if (!audio) return;
+        [0, 0.35].forEach(t => { const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = 880; g.gain.value = 0.25; o.connect(g); g.connect(audio.destination); o.start(audio.currentTime + t); o.stop(audio.currentTime + t + 0.2) });
+      } catch (e) {}
+    };
+    const draw = () => {
+      const left = Math.round((end - Date.now()) / 1000);
+      timeEl.textContent = left >= 0 ? fmt(left) : fmt(left);
+      bar.style.width = Math.max(0, Math.min(100, left / total * 100)) + '%';
+      box.classList.toggle('over', left <= 0);
+      labelEl.dataset.over = left <= 0 ? '1' : '';
+      if (left <= 0 && !beeped) { beeped = true; beep(); labelEl.textContent = 'Rest done: next set'; }
+    };
+    const stop = () => { clearInterval(tick); tick = null; box.hidden = true; document.body.classList.remove('resting'); try { lock && lock.release() } catch (e) {} lock = null };
+    const start = (secs, label) => {
+      try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume && audio.resume() } catch (e) { audio = null }
+      try { navigator.wakeLock && navigator.wakeLock.request('screen').then(l => { lock = l }, () => {}) } catch (e) {}
+      total = secs; end = Date.now() + secs * 1000; beeped = false; labelEl.textContent = label;
+      const q = document.getElementById('rest-q'), line = nextLine();
+      if (line) { q.innerHTML = `“${esc(line.text)}” <cite>— ${esc(line.by)}</cite>`; q.hidden = false } else q.hidden = true;
+      box.hidden = false; document.body.classList.add('resting');
+      clearInterval(tick); tick = setInterval(draw, 250); draw();
+    };
+    const adjust = d => {
+      end += d * 1000; total = Math.max(15, total + d);
+      if (end - Date.now() > 0 && beeped) { beeped = false; labelEl.textContent = 'Rest' }
+      draw();
+    };
+    document.getElementById('rest-minus').addEventListener('click', () => adjust(-15));
+    document.getElementById('rest-plus').addEventListener('click', () => adjust(15));
+    document.getElementById('rest-skip').addEventListener('click', stop);
+    return { start, stop };
+  })();
+
+  // ---------- state ----------
+  const blank = () => {
+    const s = { session: CFG.session, type: CFG.type, date: CFG.date, ticks: {}, lifts: {}, exNotes: {}, checks: {}, notes: '', startedAt: null, finishedAt: null };
+    EX.filter(m => !m.tickOnly).forEach(m => {
+      s.lifts[m.key] = Array.from({ length: m.sets }, () => ({ done: false, reps: m.reps, rpe: null, load: m.load ?? null }));
+    });
+    return s;
+  };
+  const merge = d => {
+    const b = blank(); d = d ? JSON.parse(JSON.stringify(d)) : {}; // db snapshots are frozen: always work on a copy
+    return Object.assign(b, d, {
+      ticks: Object.assign({}, d.ticks), exNotes: Object.assign({}, d.exNotes), checks: Object.assign({}, d.checks),
+      lifts: Object.assign(b.lifts, d.lifts)
+    });
+  };
+  let state = blank();
+  let ref = null, dirty = false, timer = null, lastLocalWrite = 0;
+  const saveEl = document.getElementById('save');
+  const setSave = (t, cls) => { saveEl.textContent = t; saveEl.className = 'save' + (cls ? ' ' + cls : '') };
+  const localKey = 'tracker-' + CFG.id;
+  try { const l = JSON.parse(localStorage.getItem(localKey) || 'null'); if (l) state = merge(l) } catch (e) {}
+
+  const persist = () => {
+    state.updatedAt = new Date().toISOString();
+    try { localStorage.setItem(localKey, JSON.stringify(state)) } catch (e) {}
+    if (!ref) return;
+    dirty = true; setSave('Saving…');
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      try { lastLocalWrite = Date.now(); await ref.set(JSON.parse(JSON.stringify(state))); dirty = false; setSave('Synced ✓', 'ok') }
+      catch (e) { dirty = false; setSave('Not saved: ' + (e && e.code || 'error') + '. Entries kept on this phone.', 'bad') }
+    }, 600);
+  };
+
+  // ---------- render ----------
+  const el = (tag, attrs = {}, html) => { const e = document.createElement(tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); if (html != null) e.innerHTML = html; return e };
+  const fmtTime = iso => iso ? new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }) : '';
+  const toggle = k => () => { state.ticks[k] = !state.ticks[k]; persist(); render() };
+  const tickRow = (label, dose, on, onClick, cls = '') => {
+    const b = el('button', { type: 'button', class: 'tick ' + cls + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false' });
+    b.innerHTML = `<span class="tick-l"><span class="box">✓</span><span>${esc(label)}</span></span><em>${esc(dose)}</em>`;
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  const stepper = (label, value, onDec, onInc) => {
+    const w = el('div', { class: 'step' });
+    const dec = el('button', { type: 'button', 'aria-label': 'Less ' + label }, '−');
+    const inc = el('button', { type: 'button', 'aria-label': 'More ' + label }, '+');
+    dec.addEventListener('click', onDec); inc.addEventListener('click', onInc);
+    w.append(dec, el('span', {}, `${esc(value)}<small>${esc(label)}</small>`), inc);
+    return w;
+  };
+  const noteBox = m => {
+    const id = 'note-' + m.key;
+    const t = el('textarea', { id, class: 'exnote', rows: '1', placeholder: 'Notes: form, pain, anything important', 'aria-label': m.name + ' notes' });
+    t.value = state.exNotes[m.key] || '';
+    t.addEventListener('input', () => { state.exNotes[m.key] = t.value; persist() });
+    return t;
+  };
+  const stepLoad = (m, s, dir) => () => {
+    if (m.loads) { const j = m.loads.indexOf(s.load); const n = j < 0 ? 0 : Math.min(m.loads.length - 1, Math.max(0, j + dir)); s.load = m.loads[n] }
+    else s.load = Math.max(0, +(s.load + dir * (m.loadStep || 2.5)).toFixed(2));
+    persist(); render();
+  };
+
+  function render() {
+    const focusId = document.activeElement && document.activeElement.id;
+    document.getElementById('t-start').replaceChildren(tickRow('Start session', state.startedAt ? 'started ' + fmtTime(state.startedAt) : 'tap when you begin', !!state.startedAt,
+      () => { state.startedAt = state.startedAt ? null : new Date().toISOString(); persist(); render() }));
+    document.getElementById('t-finish').replaceChildren(tickRow('Finish session', state.finishedAt ? 'finished ' + fmtTime(state.finishedAt) : 'tap when done', !!state.finishedAt,
+      () => { state.finishedAt = state.finishedAt ? null : new Date().toISOString(); persist(); render() }));
+    ['warmup', 'cooldown'].forEach(k => {
+      document.getElementById(k).replaceChildren(...((CFG[k] && CFG[k].items) || []).map(([key, label, dose, rest]) => tickRow(label, dose, !!state.ticks[key],
+        () => { toggle(key)(); if (state.ticks[key] && rest) Rest.start(rest, 'Rest after ' + label.split(/ [→(,]/)[0]) })));
+    });
+
+    const main = document.getElementById('main'); main.replaceChildren();
+    EX.forEach(m => {
+      const card = el('div', { class: 'ex' });
+      card.innerHTML = `<div class="ex-top"><div class="tag">${esc(m.tag)}</div><div><h3>${esc(m.name)}</h3><div class="rx">${esc(m.rx)}</div><div class="why">${esc(m.why)}</div></div></div>`
+        + (m.cues ? `<ul class="cues">${m.cues.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : '')
+        + (m.rule ? `<div class="rule">${m.rule}</div>` : '')
+        + (m.superset ? `<div class="ss">${esc(m.superset.text)}</div>` : '');
+      const box = el('div', { class: 'ticks' });
+      (m.ramp || []).forEach(([load, reps], i) => {
+        const k = `${m.key}-w${i + 1}`;
+        const last = i === m.ramp.length - 1;
+        box.append(tickRow(`Ramp W${i + 1}: ${load} × ${reps}`, '', !!state.ticks[k],
+          () => { toggle(k)(); if (state.ticks[k]) Rest.start(last ? (m.rampLastRest || 90) : (m.rampRest || 45), last ? `Ramp done: first working set of ${m.name.split(' (')[0]} next` : `Rest after ramp W${i + 1}`) }, 'ramp'));
+      });
+      if (m.tickOnly) box.append(tickRow('Done', m.dose || '', !!state.ticks[m.key], toggle(m.key)));
+      else state.lifts[m.key].forEach((s, i) => {
+        const row = el('div', { class: 'set' + (s.done ? ' on' : '') });
+        const done = el('button', { type: 'button', class: 'done' + (s.done ? ' on' : ''), 'aria-pressed': s.done ? 'true' : 'false', 'aria-label': `${m.name} set ${i + 1} done` });
+        done.innerHTML = `<span class="box">✓</span><span>${m.setLabel || 'Set'} ${i + 1}</span>`;
+        done.addEventListener('click', () => { s.done = !s.done; persist(); render(); if (s.done) Rest.start(m.rest || 60, `Rest after ${m.name.split(' (')[0]} set ${i + 1}`) });
+        const st = el('div', { class: 'steppers' });
+        if (s.load != null) st.append(stepper(m.loadUnit || 'kg', s.load, stepLoad(m, s, -1), stepLoad(m, s, 1)));
+        st.append(stepper(m.unit || 'reps', s.reps, () => { s.reps = Math.max(0, s.reps - (m.repStep || 1)); persist(); render() }, () => { s.reps += (m.repStep || 1); persist(); render() }));
+        if (!m.noRpe) st.append(stepper('RPE', s.rpe ?? '–', () => { s.rpe = s.rpe == null ? 7 : Math.max(5, s.rpe - 0.5); persist(); render() },
+          () => { s.rpe = s.rpe == null ? 7 : Math.min(10, s.rpe + 0.5); persist(); render() }));
+        row.append(done, st); box.append(row);
+        if (m.superset) { const k = `${m.superset.key}${i + 1}`; box.append(tickRow(`${m.superset.label} after set ${i + 1}`, m.superset.dose, !!state.ticks[k], toggle(k))) }
+      });
+      box.append(noteBox(m));
+      card.append(box); main.append(card);
+    });
+
+    const checks = document.getElementById('checks'); checks.replaceChildren();
+    (CFG.checks || []).forEach(c => {
+      checks.append(el('div', { class: 'hdr' }, esc(c.label)));
+      const row = el('div', { class: 'chips' });
+      for (let n = 0; n <= 10; n++) {
+        const on = state.checks[c.key] === n;
+        const b = el('button', { type: 'button', class: 'chip' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false' }, String(n));
+        b.addEventListener('click', () => { state.checks[c.key] = on ? null : n; persist(); render() });
+        row.append(b);
+      }
+      checks.append(row);
+    });
+    const wc = document.getElementById('why-card');
+    if (state.finishedAt && WHYS.length) { document.getElementById('why-text').textContent = WHYS[(new Date(state.finishedAt).getDate()) % WHYS.length].text; wc.hidden = false } else wc.hidden = true;
+    const notes = document.getElementById('notes'); notes.value = state.notes || '';
+    if (focusId) { const f = document.getElementById(focusId); if (f && f.tagName === 'TEXTAREA') { f.focus(); const L = f.value.length; f.setSelectionRange(L, L) } }
+  }
+
+  document.getElementById('notes').addEventListener('input', e => { state.notes = e.target.value; persist() });
+  let armed = false;
+  document.getElementById('reset').addEventListener('click', e => {
+    if (!armed) { armed = true; e.target.textContent = 'Tap again to clear everything'; setTimeout(() => { armed = false; e.target.textContent = 'Clear all entries' }, 4000); return }
+    armed = false; e.target.textContent = 'Clear all entries'; state = blank(); persist(); render();
+  });
+  render();
+
+  // ---------- db ----------
+  (async () => {
+    let db = null;
+    // Optional sync backend: when hosted somewhere that provides a document store, ticks sync there; otherwise localStorage only.
+    try { db = window.claude && window.claude.use ? await window.claude.use('db') : null } catch (e) { db = null }
+    if (!db) { setSave('Saved on this device ✓', 'ok'); return }
+    ref = db.doc(DOC);
+    try {
+      const snap = await ref.get();
+      if (snap.exists) { state = merge(snap.data()); render(); setSave('Synced ✓', 'ok') }
+      else setSave('Ready. Ticks sync as you go.', 'ok');
+    } catch (e) { setSave('Could not load saved entries (' + (e && e.code || 'error') + ').', 'bad') }
+    ref.onSnapshot(snap => {
+      if (!snap.exists || snap.metadata.hasPendingWrites || dirty || Date.now() - lastLocalWrite < 1500) return;
+      if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') return;
+      state = merge(snap.data()); render();
+    }, () => {});
+  })();
+})();
+</script>
